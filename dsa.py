@@ -510,39 +510,122 @@ def get_all_existing_problems():
         "Hard"
     ]
 
-    for platform in platforms:
+    # --------------------------------------------------------
+    # Get Git status
+    # --------------------------------------------------------
 
-        for difficulty in difficulties:
+    result = subprocess.run(
+        [
+            "git",
+            "status",
+            "--porcelain"
+        ],
+        cwd=BASE_DIR,
+        capture_output=True,
+        text=True
+    )
 
-            difficulty_dir = (
-                BASE_DIR
-                / platform
-                / difficulty
-            )
+    if result.returncode != 0:
 
-            if not difficulty_dir.exists():
-                continue
+        print("\n❌ Unable to read Git status.")
 
-            for folder in sorted(difficulty_dir.iterdir()):
+        return problems
 
-                if not folder.is_dir():
-                    continue
+    # --------------------------------------------------------
+    # Store paths that actually need attention
+    # --------------------------------------------------------
 
-                solution_file = folder / "solution.cpp"
-                readme_file = folder / "README.md"
+    changed_paths = []
 
-                # A valid DSA problem must contain both files
-                if (
-                    solution_file.exists()
-                    and readme_file.exists()
-                ):
+    for line in result.stdout.splitlines():
 
-                    problems.append({
-                        "path": folder,
-                        "platform": platform,
-                        "difficulty": difficulty,
-                        "name": folder.name
-                    })
+        if not line.strip():
+            continue
+
+        # Git porcelain format:
+        # XY filename
+        file_path = line[3:].strip()
+
+        # Remove quotes if Git uses them
+        file_path = file_path.strip('"')
+
+        changed_paths.append(
+            Path(file_path)
+        )
+
+    # --------------------------------------------------------
+    # Find DSA problem folders
+    # --------------------------------------------------------
+
+    for relative_file in changed_paths:
+
+        parts = relative_file.parts
+
+        # Expected:
+        #
+        # HackerRank / Easy / 0002-problem / solution.cpp
+        #
+        # or
+        #
+        # LeetCode / Medium / 0049-problem / README.md
+
+        if len(parts) < 4:
+            continue
+
+        platform = parts[0]
+        difficulty = parts[1]
+        problem_name = parts[2]
+
+        if platform not in {
+            "LeetCode",
+            "HackerRank"
+        }:
+            continue
+
+        if difficulty not in {
+            "Easy",
+            "Medium",
+            "Hard"
+        }:
+            continue
+
+        problem_path = (
+            BASE_DIR
+            / platform
+            / difficulty
+            / problem_name
+        )
+
+        solution_file = (
+            problem_path / "solution.cpp"
+        )
+
+        readme_file = (
+            problem_path / "README.md"
+        )
+
+        # Only valid DSA problem folders
+        if not (
+            solution_file.exists()
+            and readme_file.exists()
+        ):
+            continue
+
+        # Avoid duplicates
+        already_added = any(
+            item["path"] == problem_path
+            for item in problems
+        )
+
+        if already_added:
+            continue
+
+        problems.append({
+            "path": problem_path,
+            "platform": platform,
+            "difficulty": difficulty,
+            "name": problem_name
+        })
 
     return problems
 
