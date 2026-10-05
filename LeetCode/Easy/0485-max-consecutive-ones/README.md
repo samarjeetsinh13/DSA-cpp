@@ -1,9 +1,3 @@
-# Max Consecutive Ones
-
-- Platform: LeetCode
-- Difficulty: Easy
-- Topic: Array
-
 # 🔢 Max Consecutive Ones
 
 **LeetCode:** 485 — Max Consecutive Ones  
